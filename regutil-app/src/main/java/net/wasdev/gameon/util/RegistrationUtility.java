@@ -53,6 +53,7 @@ public class RegistrationUtility {
 		try {
 			parseArgs(args);
 			url = cmdargs.containsKey(MAP_SVC) ? cmdargs.get(MAP_SVC) : "https://game-on.org/map/v1/sites";
+                        System.out.println("Method of " + method + " sending to " + url);
 			switch(method) {
 				case POST:
 					register();
@@ -70,6 +71,7 @@ public class RegistrationUtility {
 			}
 		} catch (Exception e) {
 			System.out.println("Error : " + e.getMessage());
+                        e.printStackTrace();
 			printHelp();
 		}
 	}
