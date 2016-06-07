@@ -18,6 +18,7 @@ package net.wasdev.gameon.util;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -26,9 +27,7 @@ import java.net.URL;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -146,7 +145,7 @@ public class RegistrationUtility {
         HttpURLConnection con = sendToServer(url + "/" + roomid,  bodyHash);
 
         System.out.println("Deletion gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        getJSONResponse(con);
+        System.exit(getJSONResponse(con));
 	}
 	
 	//POST
@@ -156,7 +155,7 @@ public class RegistrationUtility {
         HttpURLConnection con = sendToServer(url, bodyHash);
 
         System.out.println("Registration gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        getJSONResponse(con);
+        System.exit(getJSONResponse(con));
     }
 	
 	//PUT
@@ -166,7 +165,7 @@ public class RegistrationUtility {
         HttpURLConnection con = sendToServer(url + "/" + roomid,  bodyHash);
 
         System.out.println("Update gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        getJSONResponse(con);
+        System.exit(getJSONResponse(con));
 	}
 	
 	//GET
@@ -176,7 +175,7 @@ public class RegistrationUtility {
         HttpURLConnection con = sendToServer(url + "/" + roomid, bodyHash);
 
         System.out.println("Server gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        getJSONResponse(con);
+        System.exit(getJSONResponse(con));
 	}
 	
 	private static HttpURLConnection sendToServer(String url, String bodyHash) throws Exception {
@@ -225,15 +224,21 @@ public class RegistrationUtility {
         return con;
 	}
     
-    private static String getJSONResponse(HttpURLConnection con) throws Exception {
-    	InputStream stream =  (con.getResponseCode() >= HttpURLConnection.HTTP_OK) || (con.getResponseCode() <= HttpURLConnection.HTTP_NO_CONTENT) ? con.getInputStream() : con.getErrorStream(); 
-        try (BufferedReader buffer = new BufferedReader(
-                new InputStreamReader(stream, "UTF-8"))) {
-            String response = buffer.lines().collect(Collectors.joining("\n"));
-            System.out.println("Response from server.");
-            System.out.println(response);
-            return response;
-        }
+    private static int getJSONResponse(HttpURLConnection con) throws Exception {
+    	int resCode = con.getResponseCode();
+    	int exitCode = (resCode >= HttpURLConnection.HTTP_OK) && (resCode <= HttpURLConnection.HTTP_NO_CONTENT) ? 0 : resCode;
+    	System.out.println("Response from server. (exit code = " + exitCode + ")");
+    	try {
+	    	InputStream stream =  (exitCode == 0) ? con.getInputStream() : con.getErrorStream(); 
+	        try (BufferedReader buffer = new BufferedReader(
+	                new InputStreamReader(stream, "UTF-8"))) {
+	            String response = buffer.lines().collect(Collectors.joining("\n"));
+	            System.out.println(response);
+	        }
+    	} catch (IOException e) {
+    		System.out.println("The server did not supply any additional information.");
+    	}
+        return exitCode;
     }
 	
 }

@@ -21,4 +21,28 @@ Optional parameters
 
 Register a new room :
 
-``` TBD ```
+
+### Sample JSON
+
+You can use the sample JSON file shown below as the starting point for your room registration. Simply change the values as required.
+
+```
+{
+"name":"EasyReg",
+"fullName":"A room registered by EasyReg tm.",
+"description":"Command line registration tool for room developers.",
+"doors":{
+	"s":"A winding path leading off to the south",
+	"d":"A tunnel, leading down into the earth",
+	"e":"An overgrown road, covered in brambles",
+	"u":"A spiral set of stairs, leading upward into the ceiling",
+	"w":"A shiny metal door, with a bright red handle",
+	"n":"A Large doorway to the north"
+},
+"connectionDetails":{
+	"type":"websocket",
+	"target":"ws://172.17.0.11:9080/rooms/myRoom"
+}
+}
+
+```

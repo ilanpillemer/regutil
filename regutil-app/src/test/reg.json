@@ -1,0 +1,18 @@
+{
+"name":"EasyReg",
+"fullName":"A room registered by EasyReg tm.",
+"description":"Command line registration tool for room developers.",
+"doors":{
+	"s":"A winding path leading off to the south",
+	"d":"A tunnel, leading down into the earth",
+	"e":"An overgrown road, covered in brambles",
+	"u":"A spiral set of stairs, leading upward into the ceiling",
+	"w":"A shiny metal door, with a bright red handle",
+	"n":"A Large doorway to the north"
+},
+"connectionDetails":{
+	"type":"websocket",
+	"target":"ws://172.17.0.11:9080/rooms/pictureRoom"
+}
+}
+
