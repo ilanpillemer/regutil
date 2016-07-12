@@ -1,6 +1,6 @@
 {
-"name":"EasyReg",
-"fullName":"A room registered by EasyReg tm.",
+"name":"JSReg",
+"fullName":"A room registered by JSReg tm.",
 "description":"Command line registration tool for room developers.",
 "doors":{
 	"s":"A winding path leading off to the south",
