@@ -9,7 +9,7 @@ repositories {
 }
 
 dependencies {
-	compile 'com.github.gameontext:signed:client_calls-SNAPSHOT'
+	compile 'com.github.gameontext:signed:v1.0.2'
 }
 
 eclipse.wtp.facet {
