@@ -1,7 +1,7 @@
 {
-"name":"GoReg",
-"fullName":"A room registered by the GameOn registration tool.",
-"description":"A not very interesting room which you can't connect to, but will show up in the list of sites if successfully registered.",
+"name":"roomShortname",
+"fullName":"Longer room name",
+"description":"Boring default room description. Note the target IP: This room will not be reachable from the live site without updates.",
 "doors":{
 	"s":"A winding path leading off to the south",
 	"d":"A tunnel, leading down into the earth",
