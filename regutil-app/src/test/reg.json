@@ -1,7 +1,7 @@
 {
-"name":"JSReg",
-"fullName":"A room registered by JSReg tm.",
-"description":"Command line registration tool for room developers.",
+"name":"GoReg",
+"fullName":"A room registered by the GameOn registration tool.",
+"description":"A not very interesting room which you can't connect to, but will show up in the list of sites if successfully registered.",
 "doors":{
 	"s":"A winding path leading off to the south",
 	"d":"A tunnel, leading down into the earth",
@@ -12,7 +12,7 @@
 },
 "connectionDetails":{
 	"type":"websocket",
-	"target":"ws://172.17.0.11:9080/rooms/pictureRoom"
+	"target":"ws://127.0.0.1:9080/rooms/myRoom"
 }
 }
 
