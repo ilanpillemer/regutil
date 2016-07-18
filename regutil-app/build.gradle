@@ -3,7 +3,13 @@ apply plugin: 'eclipse-wtp'
 
 sourceCompatibility = 1.8
 
+repositories {
+	mavenCentral()
+	maven { url "https://jitpack.io" }
+}
+
 dependencies {
+	compile 'com.github.gameontext:signed:v1.0.2'
 }
 
 eclipse.wtp.facet {
@@ -20,5 +26,26 @@ eclipse.jdt.file {
       it['org.eclipse.jdt.core.formatter.tabulation.char'] = 'space'
       it['org.eclipse.jdt.core.formatter.indent_switchstatements_compare_to_cases'] = 'true'
       it['org.eclipse.jdt.core.formatter.indent_switchstatements_compare_to_switch'] = 'true'
+    }
+}
+
+// This is the default build and will only provide classes in this project in the final jar
+jar {
+    manifest {
+        attributes 'Main-Class': 'org.gameontext.util.reg.RegistrationUtility'
+    }
+}
+
+
+// Use this task when you need a fat jar that contains all the required classes as well
+task fatjar (type: Jar) {
+	from {
+        (configurations.runtime).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    from sourceSets.main.runtimeClasspath
+    manifest {
+        attributes 'Main-Class': 'org.gameontext.util.reg.RegistrationUtility'
     }
 }

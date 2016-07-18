@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-package net.wasdev.gameon.util;
+package org.gameontext.util.reg;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -24,23 +24,26 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.time.Instant;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+
+import org.gameontext.signed.SignedRequestHmac;
+import org.gameontext.signed.SignedRequestMap;
 
 public class RegistrationUtility {
 	
-	private enum HTTP_METHOD { GET, PUT, POST, DELETE};
+	public enum HTTP_METHOD { GET, PUT, POST, DELETE};
 	
 	private static final Map<String, String> cmdargs = new HashMap<String, String>();
-	private static String roomid = null;
-	private static String body = null;
-	private static String url = null;
-	private static HTTP_METHOD method = HTTP_METHOD.POST;
+	private String roomid = null;
+	private String body = "";
+	private String url = null;
+	private HTTP_METHOD method = HTTP_METHOD.POST;
 	
 	private static final String HTTP_METHOD_ARG = "-m";
 	private static final String GAMEON_ID = "-i";
@@ -50,30 +53,35 @@ public class RegistrationUtility {
 	
 	public static void main(String[] args) {
 		try {
-			parseArgs(args);
-			url = cmdargs.containsKey(MAP_SVC) ? cmdargs.get(MAP_SVC) : "https://game-on.org/map/v1/sites";
-			switch(method) {
+		    RegistrationUtility util = new RegistrationUtility();
+			parseArgs(args, util);
+			util.url = cmdargs.containsKey(MAP_SVC) ? cmdargs.get(MAP_SVC) : "https://game-on.org/map/v1/sites";
+			int resCode = 0; //Server HTTP response code
+			switch(util.method) {
 				case POST:
-					register();
+					resCode = util.register();
 					break;
 				case PUT:
-					update();
+				    resCode = util.update();
 					break;
 				case DELETE:
-					delete();
+				    resCode = util.delete();
 					break;
 				case GET:
-					details();
+				    resCode = util.details();
 					break;
-				
 			}
+			//convert the HTTP response code into a system exit for build systems
+			int exitCode = (resCode >= HttpURLConnection.HTTP_OK) && (resCode <= HttpURLConnection.HTTP_NO_CONTENT) ? 0 : resCode;
+			System.out.println("System exit code : " + exitCode);
+			System.exit(exitCode);
 		} catch (Exception e) {
 			System.out.println("Error : " + e.getMessage());
 			printHelp();
 		}
 	}
 	
-	public static void parseArgs(String[] args) throws Exception {
+	private static void parseArgs(String[] args, RegistrationUtility util) throws Exception {
 		if(args.length == 0) {
 			printHelp();
 			System.exit(1);
@@ -96,22 +104,22 @@ public class RegistrationUtility {
 			throw new IllegalArgumentException("Missing required options");
 		}
 		if(cmdargs.containsKey(HTTP_METHOD_ARG)) {
-			method = HTTP_METHOD.valueOf(cmdargs.get(HTTP_METHOD_ARG));
+		    util.method = HTTP_METHOD.valueOf(cmdargs.get(HTTP_METHOD_ARG));
 		}
-		switch(method) {
+		switch(util.method) {
 			case PUT:
 				if(cmdargs.containsKey(ROOM_ID_ARG)) {
-					roomid = cmdargs.get(ROOM_ID_ARG);
+					util.roomid = cmdargs.get(ROOM_ID_ARG);
 				} else {
 					throw new IllegalArgumentException("When specifying an update with PUT, you need to supply the room id with -r");
 				}
 				//allow to fall through to read file contents for update
 			case POST:
 				String path = args[args.length -1];
-				body = readFile(path);
+				util.body = readFile(path);
 				break;
 			default:
-				roomid = args[args.length -1];
+				util.roomid = args[args.length -1];
 				break;
 		}
 	}
@@ -138,47 +146,85 @@ public class RegistrationUtility {
 		System.out.println("\t" + HTTP_METHOD_ARG + "=<HTTP method, defaults to POST if not specified>\n");
 	}
 
-	//DELETE
-	private static void delete() throws Exception {
-		System.out.println("Starting room deletion for Room ID : " + roomid);
-        String bodyHash = SecurityUtils.buildHash("");
-        HttpURLConnection con = sendToServer(url + "/" + roomid,  bodyHash);
-
-        System.out.println("Deletion gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        System.exit(getJSONResponse(con));
-	}
+	//Configuration options for invoking via code
 	
-	//POST
-	private static void register() throws Exception {
-        System.out.println("Beginning room registration / update.");
-        String bodyHash = SecurityUtils.buildHash(body);
-        HttpURLConnection con = sendToServer(url, bodyHash);
+   public String getRoomid() {
+        return roomid;
+    }
 
-        System.out.println("Registration gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        System.exit(getJSONResponse(con));
+    public void setRoomid(String roomid) {
+        this.roomid = roomid;
+    }
+
+    public String getBody() {
+        return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public HTTP_METHOD getMethod() {
+        return method;
+    }
+
+    public void setMethod(HTTP_METHOD method) {
+        this.method = method;
+    }
+	
+    public String getId() {
+        return cmdargs.get(GAMEON_ID);
+    }
+    
+    public void setId(String id) {
+        cmdargs.put(GAMEON_ID, id);
+    }
+    
+    public String getSecret() {
+        return cmdargs.get(GAMEON_SECRET);
+    }
+    
+    public void setSecret(String secret) {
+        cmdargs.put(GAMEON_SECRET, secret);
+    }
+	
+	//DELETE
+	public int delete() throws Exception {
+		System.out.println("Starting room deletion for Room ID : " + roomid);
+        HttpURLConnection con = sendToServer(url + "/" + roomid);
+        return getJSONResponse(con);
+	}
+
+    //POST
+	public int register() throws Exception {
+        System.out.println("Beginning room registration.");
+        HttpURLConnection con = sendToServer(url);
+        return getJSONResponse(con);
     }
 	
 	//PUT
-	private static void update() throws Exception {
+	public int update() throws Exception {
 		System.out.println("Starting room update for Room ID : " + roomid);
-        String bodyHash = SecurityUtils.buildHash(body);
-        HttpURLConnection con = sendToServer(url + "/" + roomid,  bodyHash);
-
-        System.out.println("Update gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        System.exit(getJSONResponse(con));
+        HttpURLConnection con = sendToServer(url + "/" + roomid);
+        return getJSONResponse(con);
 	}
 	
 	//GET
-	private static void details() throws Exception {
+	public int details() throws Exception {
 		System.out.println("Getting room details for Room ID : " + roomid);
-        String bodyHash = SecurityUtils.buildHash("");
-        HttpURLConnection con = sendToServer(url + "/" + roomid, bodyHash);
-
-        System.out.println("Server gave http code: " + con.getResponseCode() + " " + con.getResponseMessage());
-        System.exit(getJSONResponse(con));
+        HttpURLConnection con = sendToServer(url + "/" + roomid);
+        return getJSONResponse(con);
 	}
 	
-	private static HttpURLConnection sendToServer(String url, String bodyHash) throws Exception {
+	private HttpURLConnection sendToServer(String url) throws Exception {
 		System.out.println("Connecting to GameOn! at " + url + "\n");
 		URL u = new URL(url);
         HttpURLConnection con = (HttpURLConnection) u.openConnection();
@@ -189,45 +235,44 @@ public class RegistrationUtility {
         String userId = cmdargs.get(GAMEON_ID);
         String key = cmdargs.get(GAMEON_SECRET);
         
-        Instant now = Instant.now();
-        String dateValue = now.toString();
-        
-        String hmac = SecurityUtils.buildHmac(Arrays.asList(new String[] {
-                userId,
-                dateValue,
-                bodyHash
-        }),key);
-        
-        con.setDoOutput(true);
-        con.setDoInput(true);
-        con.setRequestProperty("Content-Type", "application/json;");
-        con.setRequestProperty("Accept", "application/json,text/plain");
-        con.setRequestProperty("Method", method.name());
-        con.setRequestProperty("gameon-id", userId);
-        con.setRequestProperty("gameon-date", dateValue);
-        con.setRequestProperty("gameon-sig-body", bodyHash);
-        con.setRequestProperty("gameon-signature", hmac);
         con.setRequestMethod(method.name());
         
-        if(body != null) {
-        	OutputStream os = con.getOutputStream();
-        	os.write(body.getBytes("UTF-8"));
-        	os.close();
-        }
-
-        System.out.println("Method:" + method);
-        System.out.println("gameon-id:" + userId);
-        System.out.println("gameon-sig-body:" + bodyHash);
-        System.out.println("gameon-date:" + dateValue);
-        System.out.println("gameon-signature:" + hmac + "\n");
-        
+        if(!method.equals(HTTP_METHOD.GET)) {
+            con.setDoInput(true);
+            con.setDoOutput(true);
+            con.setRequestProperty("Content-Type", "application/json;");
+            con.setRequestProperty("Accept", "application/json,text/plain");
+            
+            MultivaluedMap<String, Object> hmacHeaders = new MultivaluedHashMap<>();
+            SignedRequestMap headers = new SignedRequestMap.MVSO_StringMap(hmacHeaders);
+            String baseuri = (roomid != null) ? "/map/v1/sites/" + roomid : "/map/v1/sites";
+            //all methods except GET need to be authenticated
+            SignedRequestHmac clientHmac = new SignedRequestHmac(userId, key, method.name(), baseuri);
+            clientHmac.generateBodyHash(headers, body.getBytes("UTF-8"));
+            clientHmac.signRequest(headers);
+            clientHmac.getSignature();
+            
+            for(String header : headers.keySet()) {
+                String value = headers.getAll(header, "");
+                con.setRequestProperty(header, value);
+                System.out.println(header + ":" + value);
+            }
+            
+            if(body != null) {
+                OutputStream os = con.getOutputStream();
+                os.write(body.getBytes("UTF-8"));
+                os.close();
+            }
+        } else {
+            con.setDoInput(true);
+        }        
         return con;
 	}
     
-    private static int getJSONResponse(HttpURLConnection con) throws Exception {
+    private int getJSONResponse(HttpURLConnection con) throws Exception {
     	int resCode = con.getResponseCode();
     	int exitCode = (resCode >= HttpURLConnection.HTTP_OK) && (resCode <= HttpURLConnection.HTTP_NO_CONTENT) ? 0 : resCode;
-    	System.out.println("Response from server. (exit code = " + exitCode + ")");
+    	System.out.println("Response from server. (code = " + resCode + ")");
     	try {
 	    	InputStream stream =  (exitCode == 0) ? con.getInputStream() : con.getErrorStream(); 
 	        try (BufferedReader buffer = new BufferedReader(
@@ -238,7 +283,6 @@ public class RegistrationUtility {
     	} catch (IOException e) {
     		System.out.println("The server did not supply any additional information.");
     	}
-        return exitCode;
+        return resCode;
     }
-	
 }

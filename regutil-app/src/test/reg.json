@@ -1,7 +1,7 @@
 {
-"name":"EasyReg",
-"fullName":"A room registered by EasyReg tm.",
-"description":"Command line registration tool for room developers.",
+"name":"roomShortname",
+"fullName":"Longer room name",
+"description":"Boring default room description. Note the target IP: This room will not be reachable from the live site without updates.",
 "doors":{
 	"s":"A winding path leading off to the south",
 	"d":"A tunnel, leading down into the earth",
@@ -12,7 +12,7 @@
 },
 "connectionDetails":{
 	"type":"websocket",
-	"target":"ws://172.17.0.11:9080/rooms/pictureRoom"
+	"target":"ws://127.0.0.1:9080/rooms/myRoom"
 }
 }
 

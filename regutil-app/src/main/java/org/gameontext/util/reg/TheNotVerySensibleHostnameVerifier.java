@@ -13,17 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-package net.wasdev.gameon.util;
+package org.gameontext.util.reg;
 
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
 
 /**
- * A Trust Manager that trusts everyone.
+ * A Hostname verifier that agrees everything is verified.
  */
-public class TheVeryTrustingTrustManager implements X509TrustManager {
-    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-        return null;
+public class TheNotVerySensibleHostnameVerifier implements HostnameVerifier {
+    public boolean verify(String string, SSLSession sslSession) {
+        return true;
     }
-    public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {   }
-    public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {   }
 }
