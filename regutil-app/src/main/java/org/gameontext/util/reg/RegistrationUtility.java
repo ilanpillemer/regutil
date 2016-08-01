@@ -270,19 +270,21 @@ public class RegistrationUtility {
 	}
     
     private int getJSONResponse(HttpURLConnection con) throws Exception {
-    	int resCode = con.getResponseCode();
-    	int exitCode = (resCode >= HttpURLConnection.HTTP_OK) && (resCode <= HttpURLConnection.HTTP_NO_CONTENT) ? 0 : resCode;
-    	System.out.println("Response from server. (code = " + resCode + ")");
-    	try {
-	    	InputStream stream =  (exitCode == 0) ? con.getInputStream() : con.getErrorStream(); 
-	        try (BufferedReader buffer = new BufferedReader(
-	                new InputStreamReader(stream, "UTF-8"))) {
-	            String response = buffer.lines().collect(Collectors.joining("\n"));
-	            System.out.println(response);
-	        }
-    	} catch (IOException e) {
-    		System.out.println("The server did not supply any additional information.");
-    	}
+        int resCode = con.getResponseCode();
+        int exitCode = (resCode >= HttpURLConnection.HTTP_OK) && (resCode <= HttpURLConnection.HTTP_NO_CONTENT) ? 0 : resCode;
+        System.out.println("Response from server. (code = " + resCode + ")");
+        try {
+            InputStream stream =  (exitCode == 0) ? con.getInputStream() : con.getErrorStream(); 
+            if (stream != null) {
+                try (BufferedReader buffer = new BufferedReader(
+                        new InputStreamReader(stream, "UTF-8"))) {
+                    String response = buffer.lines().collect(Collectors.joining("\n"));
+                    System.out.println(response);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("The server did not supply any additional information.");
+        }
         return resCode;
     }
 }
