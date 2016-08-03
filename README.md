@@ -46,3 +46,7 @@ You can use the sample JSON file shown below as the starting point for your room
 }
 
 ```
+
+### Building the utility
+
+The utility can be built by running `gradlew build`. This will build the minimal jar needed for inclusion in an application. However, if you wish to use the utility directly formt he command line, use the command `gradlew fatjar` to include all required dependencies into the jar file. You can then run the utility as above by specifying `java -jar regutil-app/build/libs/regutil-app.jar` and adding the parameters listed above.
