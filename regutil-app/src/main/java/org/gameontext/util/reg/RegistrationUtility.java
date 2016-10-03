@@ -17,13 +17,13 @@ package org.gameontext.util.reg;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,11 +35,13 @@ import javax.ws.rs.core.MultivaluedMap;
 import org.gameontext.signed.SignedRequestHmac;
 import org.gameontext.signed.SignedRequestMap;
 
+import javax.net.ssl.SSLSession;
+
 public class RegistrationUtility {
 
-    public enum HTTP_METHOD { GET, PUT, POST, DELETE};
+    public static enum HTTP_METHOD { GET, PUT, POST, DELETE};
 
-    private static final Map<String, String> cmdargs = new HashMap<String, String>();
+    private final Map<String, String> cmdargs = new HashMap<String, String>();
     private String roomid = null;
     private String body = "";
     private String url = null;
@@ -51,37 +53,42 @@ public class RegistrationUtility {
     private static final String MAP_SVC = "-u";
     private static final String ROOM_ID_ARG = "-r";
 
+
+    @FunctionalInterface
+    public interface CheckedSupplier<T,R> {
+        R get() throws Exception;
+    }
+
     public static void main(String[] args) {
         try {
             RegistrationUtility util = new RegistrationUtility();
-            parseArgs(args, util);
-            util.url = cmdargs.containsKey(MAP_SVC) ? cmdargs.get(MAP_SVC) : "https://game-on.org/map/v1/sites";
-            int resCode = 0; //Server HTTP response code
-            switch(util.method) {
-            case POST:
-                resCode = util.register();
-                break;
-            case PUT:
-                resCode = util.update();
-                break;
-            case DELETE:
-                resCode = util.delete();
-                break;
-            case GET:
-                resCode = util.details();
-                break;
-            }
+            util.parseArgs(args, util);
+
+            Map<String,CheckedSupplier <String,Integer> > actions = new HashMap<>();
+            actions.put(HTTP_METHOD.POST.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl()));});
+            actions.put(HTTP_METHOD.PUT.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl() + "/" + util.getRoomid()));});
+            actions.put(HTTP_METHOD.DELETE.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl() + "/" + util.getRoomid()));});
+            actions.put(HTTP_METHOD.GET.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl() + "/" + util.getRoomid()));});
+
+            int resCode = actions.get(util.getMethod().name()).get();
             //convert the HTTP response code into a system exit for build systems
             int exitCode = (resCode >= HttpURLConnection.HTTP_OK) && (resCode <= HttpURLConnection.HTTP_NO_CONTENT) ? 0 : resCode;
             System.out.println("System exit code : " + exitCode);
             System.exit(exitCode);
         } catch (Exception e) {
-            System.out.println("Error : " + e.getMessage());
-            printHelp();
+            // Don't redisplay help text if JUnit test harness
+            // is preventing system exits from occuring.
+            // see: http://stefanbirkner.github.io/system-rules/#ExpectedSystemExit
+            if (!e.getMessage().equals("Tried to exit with status 1.")) {
+                System.out.println("Error : " + e.getMessage());
+                printHelp();
+            }
         }
     }
 
-    private static void parseArgs(String[] args, RegistrationUtility util) throws Exception {
+    private void parseArgs(String[] args, RegistrationUtility util) throws Exception {
+
+        util.setUrl(cmdargs.containsKey(MAP_SVC) ? cmdargs.get(MAP_SVC) : "https://game-on.org/map/v1/sites");
         if(args.length == 0) {
             printHelp();
             System.exit(1);
@@ -103,37 +110,44 @@ public class RegistrationUtility {
         if(!cmdargs.containsKey(GAMEON_ID) || !cmdargs.containsKey(GAMEON_SECRET)) {
             throw new IllegalArgumentException("Missing required options");
         }
+
         if(cmdargs.containsKey(HTTP_METHOD_ARG)) {
-            util.method = HTTP_METHOD.valueOf(cmdargs.get(HTTP_METHOD_ARG));
+            util.setMethod(HTTP_METHOD.valueOf(cmdargs.get(HTTP_METHOD_ARG)));
+        } else { // make this explicit
+            util.setMethod(HTTP_METHOD.POST);
         }
-        switch(util.method) {
+
+        if (util.getMethod() != HTTP_METHOD.POST && !cmdargs.containsKey(ROOM_ID_ARG) ) {
+            throw new IllegalArgumentException("When specifying an update with PUT, DELETE or GET, you need to supply the room id with -r");
+        }
+
+        switch(util.getMethod()) {
         case PUT:
-            if(cmdargs.containsKey(ROOM_ID_ARG)) {
-                util.roomid = cmdargs.get(ROOM_ID_ARG);
-            } else {
-                throw new IllegalArgumentException("When specifying an update with PUT, you need to supply the room id with -r");
-            }
+            util.setRoomid(cmdargs.get(ROOM_ID_ARG));
             //allow to fall through to read file contents for update
         case POST:
-            String path = args[args.length -1];
-            util.body = readFile(path);
+            String path = args[args.length-1];
+            util.setBody(readFile(path));
             break;
         default:
-            util.roomid = args[args.length -1];
+            util.setRoomid(cmdargs.get(ROOM_ID_ARG));
             break;
         }
     }
 
-    private static String readFile(String path) throws Exception {
+    protected static String readFile(String path) throws Exception {
         File file = new File(path);
-        if(!file.exists() || !file.isFile()) {
+        if(!file.exists() || !file.isFile())  {
+            //perhaps its a resource
+            file = new File(ClassLoader.getSystemResource(path).getFile());
+        }
+
+        if(!file.exists() || !file.isFile())  {
             throw new IllegalArgumentException("Invalid path for registration JSON file specified : " + path);
         }
-        FileReader reader = new FileReader(file);
-        char[] contents = new char[(int)file.length()];
-        reader.read(contents);
-        reader.close();
-        return new String(contents).trim();
+
+        // to retain parity with previous Java 7 code, but do we really need a line sepataor for JSON?
+        return String.join(System.getProperty("line.separator"), Files.readAllLines(file.toPath()));
     }
 
     private static void printHelp() {
@@ -196,40 +210,12 @@ public class RegistrationUtility {
         cmdargs.put(GAMEON_SECRET, secret);
     }
 
-    //DELETE
-    public int delete() throws Exception {
-        System.out.println("Starting room deletion for Room ID : " + roomid);
-        HttpURLConnection con = sendToServer(url + "/" + roomid);
-        return getJSONResponse(con);
-    }
+    protected HttpURLConnection sendToServer(HttpURLConnection con) throws Exception {
 
-    //POST
-    public int register() throws Exception {
-        System.out.println("Beginning room registration.");
-        HttpURLConnection con = sendToServer(url);
-        return getJSONResponse(con);
-    }
-
-    //PUT
-    public int update() throws Exception {
-        System.out.println("Starting room update for Room ID : " + roomid);
-        HttpURLConnection con = sendToServer(url + "/" + roomid);
-        return getJSONResponse(con);
-    }
-
-    //GET
-    public int details() throws Exception {
-        System.out.println("Getting room details for Room ID : " + roomid);
-        HttpURLConnection con = sendToServer(url + "/" + roomid);
-        return getJSONResponse(con);
-    }
-
-    private HttpURLConnection sendToServer(String url) throws Exception {
-        System.out.println("Connecting to GameOn! at " + url + "\n");
-        URL u = new URL(url);
-        HttpURLConnection con = (HttpURLConnection) u.openConnection();
-        if(url.startsWith("https://")) {
-            ((HttpsURLConnection)con).setHostnameVerifier(new TheNotVerySensibleHostnameVerifier());
+        // http response code
+        System.out.println("Executing " + getMethod().toString());
+        if (getRoomid() != null){
+            System.out.println("For roomid: " + getRoomid());
         }
 
         String userId = cmdargs.get(GAMEON_ID);
@@ -250,7 +236,6 @@ public class RegistrationUtility {
             SignedRequestHmac clientHmac = new SignedRequestHmac(userId, key, method.name(), baseuri);
             clientHmac.generateBodyHash(headers, body.getBytes("UTF-8"));
             clientHmac.signRequest(headers);
-            clientHmac.getSignature();
 
             for(String header : headers.keySet()) {
                 String value = headers.getAll(header, "");
@@ -267,6 +252,20 @@ public class RegistrationUtility {
             con.setDoInput(true);
         }
         return con;
+
+    }
+
+    private HttpURLConnection sendToServer(String url) throws Exception {
+        System.out.println("Connecting to GameOn! at " + url + "\n");
+        URL u = new URL(url);
+        HttpURLConnection con = (HttpURLConnection) u.openConnection();
+
+        // very permissive host name verification
+        if(url.startsWith("https://")) {
+            ((HttpsURLConnection)con).setHostnameVerifier( (String s, SSLSession ses) -> {return true;} );
+        }
+
+        return sendToServer(con);
     }
 
     private int getJSONResponse(HttpURLConnection con) throws Exception {
