@@ -55,7 +55,7 @@ public class RegistrationUtility {
 
 
     @FunctionalInterface
-    public interface CheckedSupplier<T,R> {
+    public interface CheckedSupplier<R> {
         R get() throws Exception;
     }
 
@@ -64,7 +64,7 @@ public class RegistrationUtility {
             RegistrationUtility util = new RegistrationUtility();
             util.parseArgs(args, util);
 
-            Map<String,CheckedSupplier <String,Integer> > actions = new HashMap<>();
+            Map<String,CheckedSupplier <Integer> > actions = new HashMap<>();
             actions.put(HTTP_METHOD.POST.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl()));});
             actions.put(HTTP_METHOD.PUT.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl() + "/" + util.getRoomid()));});
             actions.put(HTTP_METHOD.DELETE.name(), () -> {return util.getJSONResponse(util.sendToServer(util.getUrl() + "/" + util.getRoomid()));});
